@@ -107,6 +107,7 @@ namespace Robust.Client
         private IMainArgs? _loaderArgs;
 
         public bool ContentStart { get; set; } = false;
+        public StartType StartTypeValue { get; private set; }
         public GameControllerOptions Options { get; private set; } = new();
         public InitialLaunchState LaunchState { get; private set; } = default!;
 
@@ -186,8 +187,7 @@ namespace Robust.Client
             _loadscr.LoadingStep(() =>
                 {
                     // Finish initialization of WebView if loaded.
-                    if (_webViewHook != null)
-                        _loadscr.LoadingStep(_webViewHook.Initialize, _webViewHook);
+                    _webViewHook?.Initialize();
                 },
                 "WebView init");
 
@@ -425,9 +425,18 @@ namespace Robust.Client
                 ? MountOptions.Merge(_commandLineArgs.MountOptions, Options.MountOptions)
                 : Options.MountOptions;
 
+            StartTypeValue = ContentStart ? StartType.Content : StartType.Engine;
+#if FULL_RELEASE
+            if (_loaderArgs != null || Options.ResourceMountDisabled)
+                StartTypeValue = StartType.Loader;
+#else
+            if (StartTypeValue == StartType.Content && Path.GetFileName(PathHelpers.GetExecutableDirectory()) == "MacOS")
+                StartTypeValue = StartType.ContentAppBundle;
+#endif
+
             ProgramShared.DoMounts(_resManager, mountOptions, Options.ContentBuildDirectory,
                 Options.AssemblyDirectory,
-                Options.LoadContentResources, _loaderArgs != null && !Options.ResourceMountDisabled, ContentStart);
+                Options.LoadContentResources, StartTypeValue);
 
             if (_loaderArgs != null)
             {
