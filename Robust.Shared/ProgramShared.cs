@@ -23,8 +23,31 @@ internal static class ProgramShared
     }
 
 #if !FULL_RELEASE
-    private static string FindContentRootDir(bool contentStart) => PathOffset + (contentStart ? "../../" : "../../../");
-    private static string FindEngineRootDir(bool contentStart) => PathOffset + (contentStart ? "../../RobustToolbox/" : "../../");
+    private static string FindContentRootDir(StartType startType)
+    {
+        var relative = startType switch
+        {
+            StartType.Engine => "../../../",
+            StartType.Content => "../../",
+            StartType.Loader => throw new InvalidOperationException(),
+            StartType.ContentAppBundle => "../../../../../",
+            _ => throw new ArgumentOutOfRangeException(nameof(startType), startType, null)
+        };
+        return PathOffset + relative;
+    }
+
+    private static string FindEngineRootDir(StartType startType)
+    {
+        var relative = startType switch
+        {
+            StartType.Engine => "../../",
+            StartType.Content => "../../RobustToolbox/",
+            StartType.Loader => throw new InvalidOperationException(),
+            StartType.ContentAppBundle => "../../../../../RobustToolbox/",
+            _ => throw new ArgumentOutOfRangeException(nameof(startType), startType, null)
+        };
+        return PathOffset + relative;
+    }
 #endif
 
     internal static void PrintRuntimeInfo(ISawmill sawmill)
@@ -33,26 +56,33 @@ internal static class ProgramShared
             sawmill.Debug(line);
     }
 
-    internal static void DoMounts(IResourceManagerInternal res,
+    internal static void DoMounts(
+        IResourceManagerInternal res,
         MountOptions? options,
         string contentBuildDir,
         ResPath assembliesPath,
         bool loadContentResources = true,
-        bool loader = false,
-        bool contentStart = false)
+        StartType startType = StartType.Engine)
     {
 #if FULL_RELEASE
-            if (!loader)
-                res.MountContentDirectory(@"Resources/");
+        if (startType != StartType.Loader)
+            res.MountContentDirectory(@"Resources/");
 #else
-        res.MountContentDirectory($@"{FindEngineRootDir(contentStart)}Resources/");
+        var engineRoot = FindEngineRootDir(startType);
+        // System.Console.WriteLine($"ENGINE DIR IS {engineRoot}");
+        res.MountContentDirectory($@"{engineRoot}Resources/");
 
         if (loadContentResources)
         {
-            var contentRootDir = FindContentRootDir(contentStart);
-            res.MountContentDirectory($@"{contentRootDir}bin/{contentBuildDir}/", assembliesPath);
+            var contentRootDir = FindContentRootDir(startType);
+            // System.Console.WriteLine($"CONTENT DIR IS {Path.GetFullPath(contentRootDir)}");
+            res.MountContentDirectory(startType == StartType.ContentAppBundle
+                    ? "./"
+                    : $@"{contentRootDir}bin/{contentBuildDir}/",
+                assembliesPath);
+
             res.MountContentDirectory($@"{contentRootDir}Resources/");
-            LoadModuleResources(res, contentStart);
+            LoadModuleResources(res, contentRootDir);
         }
 #endif
 
@@ -89,9 +119,9 @@ internal static class ProgramShared
         task.Wait();
     }
 
-    private static void LoadModuleResources(IResourceManagerInternal res, bool contentStart = false)
+    private static void LoadModuleResources(IResourceManagerInternal res, string contentStart)
     {
-        var dirs = Directory.GetDirectories($"{FindContentRootDir(contentStart)}Modules/");
+        var dirs = Directory.GetDirectories($"{contentStart}Modules/");
         foreach (var dir in dirs)
         {
             var resourcesPath = Path.Combine(dir, "Resources");
@@ -100,4 +130,28 @@ internal static class ProgramShared
             res.MountContentDirectory(resourcesPath);
         }
     }
+}
+
+internal enum StartType
+{
+    /// <summary>
+    /// We've been started from <c>RobustToolbox/bin/Client/Robust.Client</c>
+    /// </summary>
+    Engine,
+
+    /// <summary>
+    /// We've been started from e.g. <c>bin/Content.Client/Content.Client</c>
+    /// </summary>
+    Content,
+
+    /// <summary>
+    /// We've been started from the launcher loader.
+    /// </summary>
+    Loader,
+
+    /// <summary>
+    /// (macOS only)
+    /// We've been started from e.g. <c>bin/Content.Client/Space Station 14.app/Contents/MacOS/Content.Client</c>
+    /// </summary>
+    ContentAppBundle
 }
