@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.IO;
 using System.Threading.Tasks;
 using Robust.Shared.Configuration;
 using Robust.Shared.Console;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Log;
-using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 
 namespace Robust.Shared;
@@ -20,35 +18,28 @@ internal static class ProgramShared
     {
         if (commands == null)
             return;
-
         foreach (var cmd in commands)
-        {
             consoleHost.ExecuteCommand(cmd);
-        }
     }
 
 #if !FULL_RELEASE
-    private static string FindContentRootDir(bool contentStart)
-    {
-        return PathOffset + (contentStart ? "../../" : "../../../");
-    }
-
-    private static string FindEngineRootDir(bool contentStart)
-    {
-        return PathOffset + (contentStart ? "../../RobustToolbox/" : "../../");
-    }
+    private static string FindContentRootDir(bool contentStart) => PathOffset + (contentStart ? "../../" : "../../../");
+    private static string FindEngineRootDir(bool contentStart) => PathOffset + (contentStart ? "../../RobustToolbox/" : "../../");
 #endif
 
     internal static void PrintRuntimeInfo(ISawmill sawmill)
     {
         foreach (var line in RuntimeInformationPrinter.GetInformationDump())
-        {
             sawmill.Debug(line);
-        }
     }
 
-    internal static void DoMounts(IResourceManagerInternal res, MountOptions? options, string contentBuildDir, ResPath assembliesPath, bool loadContentResources = true,
-        bool loader = false, bool contentStart = false)
+    internal static void DoMounts(IResourceManagerInternal res,
+        MountOptions? options,
+        string contentBuildDir,
+        ResPath assembliesPath,
+        bool loadContentResources = true,
+        bool loader = false,
+        bool contentStart = false)
     {
 #if FULL_RELEASE
             if (!loader)
@@ -61,21 +52,16 @@ internal static class ProgramShared
             var contentRootDir = FindContentRootDir(contentStart);
             res.MountContentDirectory($@"{contentRootDir}bin/{contentBuildDir}/", assembliesPath);
             res.MountContentDirectory($@"{contentRootDir}Resources/");
+            LoadModuleResources(res, contentStart);
         }
 #endif
 
         if (options == null)
             return;
-
         foreach (var diskPath in options.DirMounts)
-        {
             res.MountContentDirectory(diskPath);
-        }
-
         foreach (var diskPath in options.ZipMounts)
-        {
             res.MountContentPack(diskPath);
-        }
     }
 
     internal static Task CheckBadFileExtensions(IResourceManager res, IConfigurationManager cfg, ISawmill sawmill)
@@ -101,5 +87,17 @@ internal static class ProgramShared
     internal static void FinishCheckBadFileExtensions(Task task)
     {
         task.Wait();
+    }
+
+    private static void LoadModuleResources(IResourceManagerInternal res, bool contentStart = false)
+    {
+        var dirs = Directory.GetDirectories($"{FindContentRootDir(contentStart)}Modules/");
+        foreach (var dir in dirs)
+        {
+            var resourcesPath = Path.Combine(dir, "Resources");
+            if (!Directory.Exists(resourcesPath))
+                continue;
+            res.MountContentDirectory(resourcesPath);
+        }
     }
 }
