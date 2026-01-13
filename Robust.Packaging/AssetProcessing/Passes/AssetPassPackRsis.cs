@@ -53,7 +53,7 @@ public sealed class AssetPassPackRsis : AssetPass
             lock (_foundRsis)
             {
                 var dat = _foundRsis.GetOrNew(matchPng.Groups[1].Value);
-                dat.StatesFound.Add(matchPng.Groups[2].Value, file);
+                dat.StatesFound[matchPng.Groups[2].Value] = file; //overwrite
 
                 return AssetFileAcceptResult.Consumed;
             }

@@ -81,8 +81,8 @@ internal static class ProgramShared
                     : $@"{contentRootDir}bin/{contentBuildDir}/",
                 assembliesPath);
 
-            res.MountContentDirectory($@"{contentRootDir}Resources/");
             LoadModuleResources(res, contentRootDir);
+            res.MountContentDirectory($@"{contentRootDir}Resources/");
         }
 #endif
 
