@@ -18,6 +18,7 @@ public sealed class AssetPassPackRsis : AssetPass
 
     private static readonly Regex RegexMetaJson = new(@"^(.+)\.rsi/meta\.json$");
     private static readonly Regex RegexPng = new(@"^(.+)\.rsi/(.+)\.png$");
+    private static readonly object ConsoleLock = new object();
 
     private readonly Configuration _imageConfiguration;
 
@@ -120,7 +121,10 @@ public sealed class AssetPassPackRsis : AssetPass
             sheet.Metadata.GetPngMetadata().TextData.Add(new PngTextData(RsiLoading.RsicPngField, metaJson, "", ""));
             sheet.SaveAsPng(ms);
 
-            Logger?.Verbose($"Done packing {rsiPath}");
+            lock (ConsoleLock)
+            {
+                Logger?.Verbose($"Done packing {rsiPath}");
+            }
 
             return new AssetFileMemory($"{rsiPath}c", ms.ToArray());
         }
