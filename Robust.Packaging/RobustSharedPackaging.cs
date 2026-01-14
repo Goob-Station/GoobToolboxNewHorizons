@@ -1,4 +1,5 @@
 ﻿using Robust.Packaging.AssetProcessing;
+using Robust.Shared.ContentPack;
 
 namespace Robust.Packaging;
 
@@ -79,6 +80,23 @@ public sealed class RobustSharedPackaging
                 pass.InjectFileFromDisk(targetPath, path);
         }
 
+        return Task.CompletedTask;
+    }
+
+    public static Task DoModularResourceCopy(
+        string contentDir,
+        AssetPass pass,
+        HashSet<string> ignoreSet,
+        CancellationToken cancel = default)
+    {
+        var dirs = Directory.GetDirectories(Path.Combine(contentDir, "Modules"));
+        foreach (var dir in dirs)
+        {
+            var resourcesPath = Path.Combine(dir, "Resources");
+            if (!Directory.Exists(resourcesPath))
+                continue;
+            DoResourceCopy(resourcesPath, pass, ignoreSet, "", cancel);
+        }
         return Task.CompletedTask;
     }
 

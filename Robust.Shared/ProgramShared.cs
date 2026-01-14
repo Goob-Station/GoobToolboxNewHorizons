@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Robust.Shared.Configuration;
 using Robust.Shared.Console;
 using Robust.Shared.ContentPack;
 using Robust.Shared.Log;
-using Robust.Shared.Timing;
 using Robust.Shared.Utility;
 
 namespace Robust.Shared;
@@ -21,11 +18,8 @@ internal static class ProgramShared
     {
         if (commands == null)
             return;
-
         foreach (var cmd in commands)
-        {
             consoleHost.ExecuteCommand(cmd);
-        }
     }
 
 #if !FULL_RELEASE
@@ -59,9 +53,7 @@ internal static class ProgramShared
     internal static void PrintRuntimeInfo(ISawmill sawmill)
     {
         foreach (var line in RuntimeInformationPrinter.GetInformationDump())
-        {
             sawmill.Debug(line);
-        }
     }
 
     internal static void DoMounts(
@@ -84,31 +76,22 @@ internal static class ProgramShared
         {
             var contentRootDir = FindContentRootDir(startType);
             // System.Console.WriteLine($"CONTENT DIR IS {Path.GetFullPath(contentRootDir)}");
-            if (startType == StartType.ContentAppBundle)
-            {
-                res.MountContentDirectory("./", assembliesPath);
-            }
-            else
-            {
-                res.MountContentDirectory($@"{contentRootDir}bin/{contentBuildDir}/", assembliesPath);
-            }
+            res.MountContentDirectory(startType == StartType.ContentAppBundle
+                    ? "./"
+                    : $@"{contentRootDir}bin/{contentBuildDir}/",
+                assembliesPath);
 
+            LoadModuleResources(res, contentRootDir);
             res.MountContentDirectory($@"{contentRootDir}Resources/");
         }
 #endif
 
         if (options == null)
             return;
-
         foreach (var diskPath in options.DirMounts)
-        {
             res.MountContentDirectory(diskPath);
-        }
-
         foreach (var diskPath in options.ZipMounts)
-        {
             res.MountContentPack(diskPath);
-        }
     }
 
     internal static Task CheckBadFileExtensions(IResourceManager res, IConfigurationManager cfg, ISawmill sawmill)
@@ -134,6 +117,18 @@ internal static class ProgramShared
     internal static void FinishCheckBadFileExtensions(Task task)
     {
         task.Wait();
+    }
+
+    private static void LoadModuleResources(IResourceManagerInternal res, string contentStart)
+    {
+        var dirs = Directory.GetDirectories($"{contentStart}Modules/");
+        foreach (var dir in dirs)
+        {
+            var resourcesPath = Path.Combine(dir, "Resources");
+            if (!Directory.Exists(resourcesPath))
+                continue;
+            res.MountContentDirectory(resourcesPath);
+        }
     }
 }
 
