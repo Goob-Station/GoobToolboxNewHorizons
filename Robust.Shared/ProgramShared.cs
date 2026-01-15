@@ -121,13 +121,15 @@ internal static class ProgramShared
 
     private static void LoadModuleResources(IResourceManagerInternal res, string contentStart)
     {
-        var dirs = Directory.GetDirectories($"{contentStart}Modules/");
-        foreach (var dir in dirs)
+        var modulesPath = PathHelpers.ExecutableRelativeFile(Path.Combine(contentStart, "Modules/"));
+        if (!Directory.Exists(modulesPath))
+            return;
+        foreach (var dir in Directory.GetDirectories(modulesPath))
         {
             var resourcesPath = Path.Combine(dir, "Resources");
             if (!Directory.Exists(resourcesPath))
                 continue;
-            res.MountContentDirectory(resourcesPath);
+            res.MountContentDirectory(Path.GetFullPath(resourcesPath));
         }
     }
 }
